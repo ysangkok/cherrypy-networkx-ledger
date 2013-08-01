@@ -1,6 +1,8 @@
 <!doctype html>
 <html ng-app="myApp">
 <head>
+<link rel="stylesheet" type="text/css" href="/temp/ownproj/intro.js-0.5.0/introjs.css">
+<script src="/temp/ownproj/intro.js-0.5.0/intro.js"></script>
 <script src="/temp/ownproj/angular.js"></script>
 <script src="/temp/ownproj/angular-resource.js"></script>
 <script src="/temp/ownproj/angular-sanitize.js"></script>
@@ -60,7 +62,10 @@ function LedgeController($scope, $http, $location) {
   $scope.people = [];
   $scope.ledgerdesc = "";
  
+  var nameExists = function(t) { return $scope.people.filter(function(v) { return v.name === t; }).length > 0;}
+
   $scope.addPerson = function() {
+    if (nameExists($scope.personname)) {alert("Name already used."); return;}
     $scope.people.push({name: $scope.personname });
     $scope.personname = '';
   };
@@ -75,7 +80,11 @@ function LedgeController($scope, $http, $location) {
   $scope.expenses = [];
   $scope.submit = function() {
     var names = $scope.people.map(function(v) { return v.name; });
-    var expenses = children.map(function(v, idx) {
+    var expenses = children.filter(function(f) { return !f.hidden; }).map(function(v, idx) {
+        if (Object.keys(v.ispayer).map(function(k){ return v.ispayer[k]; }).indexOf(true) === -1) {
+            alert("Somebody has to pay! Check one of the checkboxes in the expense with missing payers.");
+            throw new Error("validation error");
+        }
         //v.ispayer, v.amounts
         var expense = {};
         expense["whoshouldpay"] = Array.range(0,$scope.people.length).filter(function(value, index) { return v.ispayer[index]; });
@@ -83,6 +92,12 @@ function LedgeController($scope, $http, $location) {
         expense["description"] = v.descs[idx];
         return expense;
     });
+    if ([].concat.apply([],  // concatenate all whopaid arrays
+          expenses.map(function(v) { return v.whopaid}) // get whopaid arrays
+        )
+        .filter(function(v){return v.amount !== 0; }) // get the ones where an amount was entered
+        .length === 0 // test if no amounts were entered
+       ) { alert("No expenses yet! Somebody must have bought something for an amount, and people should be assigned to pay for it (checkboxes)"); return; }
     var obj = {people: names, expenses: expenses, description: $scope.ledgerdesc};
     console.log("POSTing", JSON.stringify(obj));
     $http.post(prefix + 'expenses', obj).success(function(data, status, headers, config) {
@@ -95,6 +110,16 @@ function LedgeController($scope, $http, $location) {
   $scope.childAdd = function(child) {
     children.push(child);
   };
+
+  $scope.edit = function(idx) {
+    var t;
+    t = prompt("Enter new name");
+    if (!t) return;
+    if (nameExists(t)) {alert("Name already used."); return;}
+    $scope.people[idx].name = t;
+  }
+
+  $scope.addExpense();
 }
 var prefix = "/temp/ownproj/rest/";
 Array.range= function(a, b, step){
@@ -141,6 +166,8 @@ function clone(obj) {
 
 function ExpenseController($scope) {
 
+    $scope.hidden = false;
+
     $scope.addPayer = function() {
         this.whopaid.push({"personId": 0, "amount": 0});
     };
@@ -157,7 +184,8 @@ function ExpenseController($scope) {
     $scope.descs = {};
 
     $scope.deleteMe = function (v) {
-        $scope.$parent.expenses.splice(v, 1);
+        //$scope.$parent.expenses.splice(v, 1);
+        $scope.hidden = true;
     };
 
 }
@@ -174,11 +202,13 @@ function ExpenseController($scope) {
     <div>
         <ul>
             <li ng-hide="hideMe()">No people added yet</li>
-            <li ng-repeat="person in people">{{person.name}}</li>
+            <li ng-repeat="person in people">{{person.name}} <a href="javascript:void(0)" ng-click="edit($index)" style="opacity:0.4">✎</a></li>
         </ul>
         <form ng-submit="addPerson()">
-            <input ng-model="personname" placeholder="Enter name here..." />
-            <input type="submit" value="add" />
+          <div data-step="1" data-intro="Add some people here. For example, write James, push enter, and then add more people similarily">
+            <input ng-model="personname" placeholder="To add a person, enter name here..." />
+            <input type="submit" value="Add" />
+          </div>
         </form>
     </div>
 </fieldset>
@@ -187,17 +217,17 @@ function ExpenseController($scope) {
         <legend>Expenses</legend>
         <div>
             <div ng-repeat="expense in expenses">
-              <div ng-controller="ExpenseController">
+              <div ng-hide="hidden" ng-controller="ExpenseController">
                 <fieldset>
                 <legend>Expense {{$index+1}}: {{descs[$index]}}</legend>
                 <input placeholder="Expense description" ng-model="descs[$index]" />
                 <table>
                     <thead ng-show="hideMe()"><tr><th>Name<th>Should pay?<th>Amount paid already</tr></thead>
-                    <tr ng-repeat="person in people()">
+                    <tr ng-repeat="person in people()" data-step="3" data-intro="Everyone you add are visible in this list.">
                         <td>{{person.name}}</td>
-                        <td><input type="checkbox" ng-model="ispayer[$index]"></td>
-                        <td><!--ng-show="ispayer[$index]"-->
-                            <input ng-model="amounts[$index]" placeholder="0" />
+                        <td data-step="5" data-intro="You can also specify whether they should be reimbursed fully, or if they should contribute to paying the expense. Remember, somebody has to pay! That means, at least one checkbox has to get checked!"><input type="checkbox" ng-model="ispayer[$index]" /></td>
+                        <td data-step="4" data-intro="You can specify how much they contributed to each expense (like purchases)."><!--ng-show="ispayer[$index]"-->
+                            <input ng-model="amounts[$index]" placeholder="0" style="text-align:right" />
                         </td>
                     </tr>
                     <tr><td colspan="3" ng-hide="hideMe()">No people added yet</td></tr>
@@ -207,10 +237,12 @@ function ExpenseController($scope) {
               </div>
             </div>
             <div ng-hide="hideNoExpenses()">No expenses yet</div>
-            <button ng-click="addExpense()">Add Expense</button>
+            <div data-step="2" data-intro="Add a new expense">
+                <button ng-click="addExpense()">Add Expense</button>
+            </div>
         </div>
     </fieldset>
-    <button ng-click="submit()">Submit</button>
+    <button data-step="6" data-intro="When you have added all expenses, click Submit to calculate how much everyone should pay each other." ng-click="submit()">Submit</button>
 </fieldset>
 </div>
 
@@ -227,5 +259,6 @@ give {{i}} {{j}}.
 </div>
 </div>
 </script>
+<div><a href="javascript:introJs().start()">Tutorial</a></div>
 </body>
 </html>
