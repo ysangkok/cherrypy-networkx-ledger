@@ -1,0 +1,231 @@
+<!doctype html>
+<html ng-app="myApp">
+<head>
+<script src="/temp/ownproj/angular.js"></script>
+<script src="/temp/ownproj/angular-resource.js"></script>
+<script src="/temp/ownproj/angular-sanitize.js"></script>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>ledger</title>
+<base href="/temp/ownproj/">
+<script>
+function errHandler(data, status, $location){
+    //alert(status + ": " + data);
+    var sourceWindow = window.open('', 'Error', 'height=600,width=800,scrollbars=1,resizable=1');
+    sourceWindow.document.write(data);
+    sourceWindow.document.close();
+}
+
+var module = angular.module('myApp', ['ngSanitize']);
+
+module.config([
+  '$routeProvider', '$locationProvider' , function ($routeProvider, $locationProvider) {
+     $routeProvider
+       .when('/', {redirectTo : '/root/newledger'})
+       .when('/root/newledger', {template : '<ng-include src="\'/root/newledger\'"></ng-view>', controller: LedgeController})
+       .when('/root/ledgers/:ledgerid/:version', {template : '<ng-include src="\'/root/ledgers/n\'"></ng-view>', controller: ViewLedgerController})
+       .when('/404', {template: '<h1>404: {{problem}}<br><a target="_self" href="/temp/ownproj{{fix.url}}">{{fix.desc}}</a></h1>', controller: function($scope,$location) {$scope.problem = $location.search().requested + " not found"; $scope.fix={"url":$location.search().requested,"desc": "try again"}}})
+       .otherwise({redirectTo: function(routeParam, path, search){ return '/404?requested=' + path; }});
+     ;
+
+     $locationProvider.html5Mode(true);
+  }
+]);
+
+function ViewLedgerController($scope , $routeParams, $http, $location) {
+    $http.get(prefix + "graph/" + $routeParams.ledgerid + "/" + $routeParams.version).success(function(data, status) {
+        $scope.graph = data;
+    }).error(function(data, status) {
+        var currenturl = $location.path();
+        console.log(currenturl);
+        if (status === 404) $location.path("/404?requested=" + encodeURIComponent(currenturl));
+        else errHandler.apply(this, arguments);
+    });
+    $scope.pairs = pairs;
+    $scope.hideMeM = function(v) {return pairs(v).filter(function(w) { return w[1] !== 0 && w[0] !== "$$hashKey"; }).length > 0; };
+}
+
+function pairs(foo) {
+    if (typeof foo === "undefined") return [];
+    if (typeof foo !== 'object') throw new Error("no object: " + JSON.stringify(foo));
+//    return Object.keys(arr).map(function(v) { console.log(v); return [v, arr[v]]; });
+var noo = [];
+for(i in foo)
+    if (foo.hasOwnProperty(i)) {
+        noo.push([i, foo[i]])
+    }
+return noo;
+}
+
+function LedgeController($scope, $http, $location) {
+  $scope.people = [];
+  $scope.ledgerdesc = "";
+ 
+  $scope.addPerson = function() {
+    $scope.people.push({name: $scope.personname });
+    $scope.personname = '';
+  };
+
+  $scope.personname = "";
+  $scope.hideMe = function() { return $scope.people.length > 0; };
+  $scope.hideNoExpenses = function() { return $scope.expenses.length > 0; };
+
+  $scope.addExpense = function() {
+      $scope.expenses.push({"whopaid": [], "whoshouldpay": []});
+  };
+  $scope.expenses = [];
+  $scope.submit = function() {
+    var names = $scope.people.map(function(v) { return v.name; });
+    var expenses = children.map(function(v, idx) {
+        //v.ispayer, v.amounts
+        var expense = {};
+        expense["whoshouldpay"] = Array.range(0,$scope.people.length).filter(function(value, index) { return v.ispayer[index]; });
+        expense["whopaid"] = Array.range(0,$scope.people.length).map(function(w, index) {return {"personId": index, "amount": Number(v.amounts[index] || 0)};}).filter(function(v) { return v["amount"] !== 0; });
+        expense["description"] = v.descs[idx];
+        return expense;
+    });
+    var obj = {people: names, expenses: expenses, description: $scope.ledgerdesc};
+    console.log("POSTing", JSON.stringify(obj));
+    $http.post(prefix + 'expenses', obj).success(function(data, status, headers, config) {
+        //$location.path(data);
+        $location.path("/root/ledgers/" + data.jobid + "/" + data.version);
+    }).error(errHandler.bind(this));
+  };
+
+  var children = [];
+  $scope.childAdd = function(child) {
+    children.push(child);
+  };
+}
+var prefix = "/temp/ownproj/rest/";
+Array.range= function(a, b, step){
+    var A= [];
+        A[0]= a;
+        step= step || 1;
+        while(a+step< b){
+            A[A.length]= a+= step;
+        }
+    return A;
+}
+
+function clone(obj) {
+    // Handle the 3 simple types, and null or undefined
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle Date
+    if (obj instanceof Date) {
+        var copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
+    }
+
+    // Handle Array
+    if (obj instanceof Array) {
+        var copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle Object
+    if (obj instanceof Object) {
+        var copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+}
+
+function ExpenseController($scope) {
+
+    $scope.addPayer = function() {
+        this.whopaid.push({"personId": 0, "amount": 0});
+    };
+    $scope.whoshouldpay = function(expense) {
+        return $scope.$parent.people.filter(function(v) { return v.shouldpay; }).map(function(v) { return v.personId; });
+    };
+    $scope.people = function() { return clone($scope.$parent.people); };
+
+    $scope.$parent.childAdd($scope);
+
+    $scope.ispayer = {};
+    $scope.hideMe = function() { return $scope.people().length > 0; };
+    $scope.amounts = {};
+    $scope.descs = {};
+
+    $scope.deleteMe = function (v) {
+        $scope.$parent.expenses.splice(v, 1);
+    };
+
+}
+
+</script>
+</head>
+<body>
+<div ng-controller="LedgeController">
+<fieldset>
+<legend>New Ledger</legend>
+<input placeholder="Ledger description" ng-model="ledgerdesc" />
+<fieldset>
+    <legend>People</legend>
+    <div>
+        <ul>
+            <li ng-hide="hideMe()">No people added yet</li>
+            <li ng-repeat="person in people">{{person.name}}</li>
+        </ul>
+        <form ng-submit="addPerson()">
+            <input ng-model="personname" placeholder="Enter name here..." />
+            <input type="submit" value="add" />
+        </form>
+    </div>
+</fieldset>
+
+    <fieldset>
+        <legend>Expenses</legend>
+        <div>
+            <div ng-repeat="expense in expenses">
+              <div ng-controller="ExpenseController">
+                <fieldset>
+                <legend>Expense {{$index+1}}: {{descs[$index]}}</legend>
+                <input placeholder="Expense description" ng-model="descs[$index]" />
+                <table>
+                    <thead ng-show="hideMe()"><tr><th>Name<th>Should pay?<th>Amount paid already</tr></thead>
+                    <tr ng-repeat="person in people()">
+                        <td>{{person.name}}</td>
+                        <td><input type="checkbox" ng-model="ispayer[$index]"></td>
+                        <td><!--ng-show="ispayer[$index]"-->
+                            <input ng-model="amounts[$index]" placeholder="0" />
+                        </td>
+                    </tr>
+                    <tr><td colspan="3" ng-hide="hideMe()">No people added yet</td></tr>
+                </table>
+                <button ng-click="deleteMe($index)">Delete expense</button>
+                </fieldset>
+              </div>
+            </div>
+            <div ng-hide="hideNoExpenses()">No expenses yet</div>
+            <button ng-click="addExpense()">Add Expense</button>
+        </div>
+    </fieldset>
+    <button ng-click="submit()">Submit</button>
+</fieldset>
+</div>
+
+<div ng-view></div>
+<script type="text/ng-template"  id="/root/newledger">
+<!-- didn't work when in here -->
+</script>
+<script type="text/ng-template"  id="/root/ledgers/n">
+<div ng-repeat="(k,v) in graph">
+<h2>{{k}}</h2>
+<div ng-hide="hideMeM(v)">doesn't have to give out anything</div>
+<div ng-repeat="(i,j) in v" ng-show="j">
+give {{i}} {{j}}.
+</div>
+</div>
+</script>
+</body>
+</html>
