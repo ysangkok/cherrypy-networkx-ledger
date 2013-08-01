@@ -35,7 +35,8 @@ module.config([
 
 function ViewLedgerController($scope , $routeParams, $http, $location) {
     $http.get(prefix + "graph/" + $routeParams.ledgerid + "/" + $routeParams.version).success(function(data, status) {
-        $scope.graph = data;
+        $scope.graph = data.graph;
+        $scope.description = data.description;
     }).error(function(data, status) {
         var currenturl = $location.path();
         console.log(currenturl);
@@ -194,9 +195,8 @@ function ExpenseController($scope) {
 </head>
 <body>
 <div ng-controller="LedgeController">
-<fieldset>
-<legend>New Ledger</legend>
-<input placeholder="Ledger description" ng-model="ledgerdesc" />
+<h1>New ledger</h1>
+<label>Ledger description: <input placeholder="Ledger description" ng-model="ledgerdesc" /></label>
 <fieldset>
     <legend>People</legend>
     <div>
@@ -213,14 +213,12 @@ function ExpenseController($scope) {
     </div>
 </fieldset>
 
-    <fieldset>
-        <legend>Expenses</legend>
         <div>
             <div ng-repeat="expense in expenses">
               <div ng-hide="hidden" ng-controller="ExpenseController">
                 <fieldset>
                 <legend>Expense {{$index+1}}: {{descs[$index]}}</legend>
-                <input placeholder="Expense description" ng-model="descs[$index]" />
+                <label>Expense description: <input ng-model="descs[$index]" /></label>
                 <table>
                     <thead ng-show="hideMe()"><tr><th>Name<th>Should pay?<th>Amount paid already</tr></thead>
                     <tr ng-repeat="person in people()" data-step="3" data-intro="Everyone you add are visible in this list.">
@@ -241,9 +239,7 @@ function ExpenseController($scope) {
                 <button ng-click="addExpense()">Add Expense</button>
             </div>
         </div>
-    </fieldset>
-    <button data-step="6" data-intro="When you have added all expenses, click Submit to calculate how much everyone should pay each other." ng-click="submit()">Submit</button>
-</fieldset>
+<p><button data-step="6" data-intro="When you have added all expenses, click Submit to calculate how much everyone should pay each other." ng-click="submit()">Submit</button></p>
 </div>
 
 <div ng-view></div>
@@ -251,6 +247,7 @@ function ExpenseController($scope) {
 <!-- didn't work when in here -->
 </script>
 <script type="text/ng-template"  id="/root/ledgers/n">
+<h1>Viewing ledger: {{description}}</h1>
 <div ng-repeat="(k,v) in graph">
 <h2>{{k}}</h2>
 <div ng-hide="hideMeM(v)">doesn't have to give out anything</div>

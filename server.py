@@ -69,7 +69,7 @@ class Graph(object):
             c = db[jobid][version]
         except (IndexError, KeyError):
             raise cherrypy.NotFound()
-        return json.dumps(solve_mincost_problem_for_expenses(c))
+        return json.dumps({"description": c["description"], "graph": solve_mincost_problem_for_expenses(c)})
 
 root = Root()
 root.expenses = Expenses()
