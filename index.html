@@ -61,17 +61,17 @@ return noo;
 
 function LedgeController($scope, $http, $location) {
   $scope.people = [{name: "John Doe"},{name: "Mr Smith"}];
-  $scope.ledgerdesc = "";
  
   var nameExists = function(t) { return $scope.people.filter(function(v) { return v.name === t; }).length > 0;}
 
   $scope.addPerson = function() {
-    if (nameExists($scope.personname)) {alert("Name already used."); return;}
-    $scope.people.push({name: $scope.personname });
-    $scope.personname = '';
+    var el = document.querySelector("#personname");
+    if (el.value === "") return;
+    if (nameExists(el.value)) {alert("Name already used."); return;}
+    $scope.people.push({name: el.value });
+    el.value = "";
   };
 
-  $scope.personname = "";
   $scope.hideMe = function() { return $scope.people.length > 0; };
   $scope.hideNoExpenses = function() { return $scope.expenses.length > 0; };
 
@@ -90,7 +90,7 @@ function LedgeController($scope, $http, $location) {
         var expense = {};
         expense["whoshouldpay"] = Array.range(0,$scope.people.length).filter(function(value, index) { return v.ispayer[index]; });
         expense["whopaid"] = Array.range(0,$scope.people.length).map(function(w, index) {return {"personId": index, "amount": Number(v.amounts[index] || 0)};}).filter(function(v) { return v["amount"] !== 0; });
-        expense["description"] = v.descs[idx];
+        expense["description"] = v.descs[idx] ? v.descs[idx] : "Unnamed Expense";
         return expense;
     });
     if ([].concat.apply([],  // concatenate all whopaid arrays
@@ -99,7 +99,8 @@ function LedgeController($scope, $http, $location) {
         .filter(function(v){return v.amount !== 0; }) // get the ones where an amount was entered
         .length === 0 // test if no amounts were entered
        ) { alert("No expenses yet! Somebody must have bought something for an amount, and people should be assigned to pay for it (checkboxes)"); return; }
-    var obj = {people: names, expenses: expenses, description: $scope.ledgerdesc};
+    var d = document.querySelector("#ledgerdesc").value ? document.querySelector("#ledgerdesc").value : "Unnamed Ledger";
+    var obj = {people: names, expenses: expenses, description: d};
     console.log("POSTing", JSON.stringify(obj));
     $http.post(prefix + 'expenses', obj).success(function(data, status, headers, config) {
         //$location.path(data);
@@ -194,10 +195,10 @@ function ExpenseController($scope) {
 </script>
 </head>
 <body>
-<div><button onclick="startIntro()">Tutorial</button></div>
-<div ng-controller="LedgeController">
+<script type="text/ng-template"  id="/root/newledger">
 <h1>New Ledger</h1>
-<label>Ledger description: <input placeholder="Camping trip" ng-model="ledgerdesc" /></label>
+<div><button onclick="startIntro()">Tutorial</button></div>
+<label>Ledger description: <input placeholder="Camping trip" id="ledgerdesc" /></label>
 <fieldset>
     <legend>People</legend>
     <div>
@@ -207,7 +208,7 @@ function ExpenseController($scope) {
         </ul>
         <form ng-submit="addPerson()">
           <div class="step1">
-            <input ng-model="personname" placeholder="Name" />
+            <input placeholder="Name" id="personname" />
             <input type="submit" value="Add" />
           </div>
         </form>
@@ -241,13 +242,11 @@ function ExpenseController($scope) {
             </div>
         </div>
 <p><button class="step6" ng-click="submit()">Submit</button></p>
-</div>
+</script>
 
 <div ng-view></div>
-<script type="text/ng-template"  id="/root/newledger">
-<!-- didn't work when in here -->
-</script>
 <script type="text/ng-template"  id="/root/ledgers/n">
+<p><a href="root/newledger">New ledger</a></p>
 <h1>Viewing ledger: {{description}}</h1>
 <div ng-repeat="(k,v) in graph">
 <h2>{{k}}</h2>
