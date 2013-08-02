@@ -60,7 +60,7 @@ return noo;
 }
 
 function LedgeController($scope, $http, $location) {
-  $scope.people = [];
+  $scope.people = [{name: "John Doe"},{name: "Mr Smith"}];
   $scope.ledgerdesc = "";
  
   var nameExists = function(t) { return $scope.people.filter(function(v) { return v.name === t; }).length > 0;}
@@ -194,19 +194,20 @@ function ExpenseController($scope) {
 </script>
 </head>
 <body>
+<div><button onclick="startIntro()">Tutorial</button></div>
 <div ng-controller="LedgeController">
-<h1>New ledger</h1>
-<label>Ledger description: <input placeholder="Ledger description" ng-model="ledgerdesc" /></label>
+<h1>New Ledger</h1>
+<label>Ledger description: <input placeholder="Camping trip" ng-model="ledgerdesc" /></label>
 <fieldset>
     <legend>People</legend>
     <div>
-        <ul>
+        <ul class="step2">
             <li ng-hide="hideMe()">No people added yet</li>
-            <li ng-repeat="person in people">{{person.name}} <a href="javascript:void(0)" ng-click="edit($index)" style="opacity:0.4">✎</a></li>
+            <li class="step0" ng-repeat="person in people">{{person.name}} <a href="javascript:void(0)" ng-click="edit($index)" style="opacity:0.4">✎</a></li>
         </ul>
         <form ng-submit="addPerson()">
-          <div data-step="1" data-intro="Add some people here. For example, write James, push enter, and then add more people similarily">
-            <input ng-model="personname" placeholder="To add a person, enter name here..." />
+          <div class="step1">
+            <input ng-model="personname" placeholder="Name" />
             <input type="submit" value="Add" />
           </div>
         </form>
@@ -218,13 +219,13 @@ function ExpenseController($scope) {
               <div ng-hide="hidden" ng-controller="ExpenseController">
                 <fieldset>
                 <legend>Expense {{$index+1}}: {{descs[$index]}}</legend>
-                <label>Expense description: <input ng-model="descs[$index]" /></label>
-                <table>
-                    <thead ng-show="hideMe()"><tr><th>Name<th>Should pay?<th>Amount paid already</tr></thead>
-                    <tr ng-repeat="person in people()" data-step="3" data-intro="Everyone you add are visible in this list.">
-                        <td>{{person.name}}</td>
-                        <td data-step="5" data-intro="You can also specify whether they should be reimbursed fully, or if they should contribute to paying the expense. Remember, somebody has to pay! That means, at least one checkbox has to get checked!"><input type="checkbox" ng-model="ispayer[$index]" /></td>
-                        <td data-step="4" data-intro="You can specify how much they contributed to each expense (like purchases)."><!--ng-show="ispayer[$index]"-->
+                <label>Expense description: <input placeholder="Beer" ng-model="descs[$index]" /></label>
+                <table cellpadding="5">
+                    <thead ng-show="hideMe()"><tr><th>Name of payer<th>Should this person actually pay for this item?<th>Amount paid already</tr></thead>
+                    <tr ng-repeat="person in people()">
+                        <td class="step3">{{person.name}}</td>
+                        <td class="step5"><input type="checkbox" ng-model="ispayer[$index]" style="width:100%" /></td>
+                        <td class="step4"><!--ng-show="ispayer[$index]"-->
                             <input ng-model="amounts[$index]" placeholder="0" style="text-align:right" />
                         </td>
                     </tr>
@@ -235,11 +236,11 @@ function ExpenseController($scope) {
               </div>
             </div>
             <div ng-hide="hideNoExpenses()">No expenses yet</div>
-            <div data-step="2" data-intro="Add a new expense">
+            <div class="step3">
                 <button ng-click="addExpense()">Add Expense</button>
             </div>
         </div>
-<p><button data-step="6" data-intro="When you have added all expenses, click Submit to calculate how much everyone should pay each other." ng-click="submit()">Submit</button></p>
+<p><button class="step6" ng-click="submit()">Submit</button></p>
 </div>
 
 <div ng-view></div>
@@ -256,6 +257,23 @@ give {{i}} {{j}}.
 </div>
 </div>
 </script>
-<div><a onclick="introJs().start()" href="javascript:void(0)">Tutorial</a></div>
+<script type="text/javascript">
+function startIntro() {
+  var intro = introJs();
+  intro.setOptions({
+    steps: [
+      { element: document.querySelectorAll('.step0')[0], intro: "These are sample people involved in this ledger, you can edit their names." },
+      { element: document.querySelectorAll('.step1')[0], intro: "If you need more people, add them here." },
+      { element: document.querySelectorAll(".step2")[0], intro: 'Everyone you add are visible in this list.', },
+      { element: document.querySelectorAll(".step3")[0], intro: "When you are done adding people, add a new expense."},
+      { element: document.querySelectorAll(".step4")[0], intro: "You can specify how much they contributed to each expense (like purchases).", },
+      { element: document.querySelectorAll(".step5")[0], intro: 'You can also specify whether they should be reimbursed fully, or if they should contribute to paying the expense. Remember, somebody has to pay! That means, at least one checkbox has to get checked!' },
+      { element: document.querySelectorAll(".step6")[0], intro: "When you have added all expenses, click Submit to calculate how much everyone should pay each other."}
+    ]
+  });
+
+  intro.start();
+}
+</script>
 </body>
 </html>
