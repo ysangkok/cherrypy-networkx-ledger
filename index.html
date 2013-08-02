@@ -60,6 +60,25 @@ return noo;
 }
 
 function LedgeController($scope, $http, $location) {
+
+$scope.tutorial = function () {
+  if ($scope.people.length === 0) { $scope.people.push({name: "Mr Demo Person"}); $scope.$apply(); }
+  var intro = introJs();
+  intro.setOptions({
+    steps: [
+      { element: document.querySelectorAll('.step0')[0], intro: "These are sample people involved in this ledger, you can edit their names." },
+      { element: document.querySelectorAll('.step1')[0], intro: "If you need more people, add them here." },
+      { element: document.querySelectorAll(".step2")[0], intro: 'Everyone you add are visible in this list.', },
+      { element: document.querySelectorAll(".step3")[0], intro: "When you are done adding people, add a new expense."},
+      { element: document.querySelectorAll(".step4")[0], intro: "You can specify how much they contributed to each expense (like purchases).", },
+      { element: document.querySelectorAll(".step5")[0], intro: 'You can also specify whether they should be reimbursed fully, or if they should contribute to paying the expense. Remember, somebody has to pay! That means, at least one checkbox has to get checked!' },
+      { element: document.querySelectorAll(".step6")[0], intro: "When you have added all expenses, click Submit to calculate how much everyone should pay each other."}
+    ]
+  });
+
+  intro.start();
+}
+
   $scope.people = [{name: "John Doe"},{name: "Mr Smith"}];
  
   var nameExists = function(t) { return $scope.people.filter(function(v) { return v.name === t; }).length > 0;}
@@ -119,6 +138,10 @@ function LedgeController($scope, $http, $location) {
     if (!t) return;
     if (nameExists(t)) {alert("Name already used."); return;}
     $scope.people[idx].name = t;
+  }
+
+  $scope.delete = function(idx) {
+    $scope.people.splice(idx,1);
   }
 
   $scope.addExpense();
@@ -197,14 +220,14 @@ function ExpenseController($scope) {
 <body>
 <script type="text/ng-template"  id="/root/newledger">
 <h1>New Ledger</h1>
-<div><button onclick="startIntro()">Tutorial</button></div>
+<div><button ng-click="tutorial()">Tutorial</button></div>
 <label>Ledger description: <input placeholder="Camping trip" id="ledgerdesc" /></label>
 <fieldset>
-    <legend>People</legend>
+    <legend>People Involved</legend>
     <div>
         <ul class="step2">
             <li ng-hide="hideMe()">No people added yet</li>
-            <li class="step0" ng-repeat="person in people">{{person.name}} <a href="javascript:void(0)" ng-click="edit($index)" style="opacity:0.4">✎</a></li>
+            <li class="step0" ng-repeat="person in people">{{person.name}} <a href="javascript:void(0)" ng-click="edit($index)" style="opacity:0.4">✎</a> <a href="javascript:void(0)" ng-click="delete($index)">X</a></li>
         </ul>
         <form ng-submit="addPerson()">
           <div class="step1">
@@ -257,22 +280,6 @@ give {{i}} {{j}}.
 </div>
 </script>
 <script type="text/javascript">
-function startIntro() {
-  var intro = introJs();
-  intro.setOptions({
-    steps: [
-      { element: document.querySelectorAll('.step0')[0], intro: "These are sample people involved in this ledger, you can edit their names." },
-      { element: document.querySelectorAll('.step1')[0], intro: "If you need more people, add them here." },
-      { element: document.querySelectorAll(".step2")[0], intro: 'Everyone you add are visible in this list.', },
-      { element: document.querySelectorAll(".step3")[0], intro: "When you are done adding people, add a new expense."},
-      { element: document.querySelectorAll(".step4")[0], intro: "You can specify how much they contributed to each expense (like purchases).", },
-      { element: document.querySelectorAll(".step5")[0], intro: 'You can also specify whether they should be reimbursed fully, or if they should contribute to paying the expense. Remember, somebody has to pay! That means, at least one checkbox has to get checked!' },
-      { element: document.querySelectorAll(".step6")[0], intro: "When you have added all expenses, click Submit to calculate how much everyone should pay each other."}
-    ]
-  });
-
-  intro.start();
-}
 </script>
 </body>
 </html>
