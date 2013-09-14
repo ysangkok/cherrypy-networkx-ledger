@@ -9,7 +9,7 @@ def getpersonscontributedamount(whopaid, personId):
 
 def solve_mincost_problem_for_expenses(job):
     nodes = [] # b cx cy
-    for personId in job["people"]:
+    for person in job["people"]:
         nodes.append({"b": 0})
     
     G = nx.DiGraph()
@@ -29,12 +29,14 @@ def solve_mincost_problem_for_expenses(job):
 
     for v, i in zip(nodes, itertools.count()):
         #print(job["people"][i], v["b"])
-        G.add_node(job["people"][i], demand=v["b"])
+        #G.add_node(job["people"][i], demand=v["b"])
+        G.add_node(i, demand=v["b"])
     
     for i in range(len(job["people"])):
         for j in range(len(job["people"])):
             if (i != j):
-                G.add_weighted_edges_from([(job["people"][i], job["people"][j], 1)])
+                #G.add_weighted_edges_from([(job["people"][i], job["people"][j], 1)])
+                G.add_weighted_edges_from([(i, j, 1)])
 
     #print(G)
     flowCost, flowDict = nx.network_simplex(G)
