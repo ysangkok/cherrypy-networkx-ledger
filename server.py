@@ -24,13 +24,12 @@ def exit():
 
 cherrypy.engine.signal_handler.set_handler("SIGINT", exit)
 
-class Root(object):
-    pass
-
 @cherrypy.popargs("jobid", "version", "access_token", "user_token", "indices")
 class Pay(object):
     exposed = True
-    def GET(self, jobid, version, access_token, user_token, indices):
+    def GET(self, *args, **kwargs):
+        return "<form action='' method='post'><input type='submit' value='Mark as paid'>"
+    def POST(self, jobid, version, access_token, user_token, indices):
         try:
             indices = json.loads(indices)
             assert isinstance(indices, list)
@@ -135,6 +134,12 @@ class Expenses(object):
             raise cherrypy.NotFound()
             #return "not found: " + str(jobid) + " " + str(version)
 
+class Ledgers(object):
+    exposed = True
+    def GET(self):
+        return json.dumps(list(db.keys()))
+
+
 @cherrypy.popargs("jobid", "version")
 class Graph(object):
     exposed = True
@@ -146,26 +151,45 @@ class Graph(object):
             raise cherrypy.NotFound()
         return json.dumps({"description": c["description"], "graph": solve_mincost_problem_for_expenses(c), "people": c["people"]})
 
-root = Root()
-root.expenses = Expenses()
-root.graph = Graph()
-root.frozen = Frozen()
-root.freeze = Freeze()
-root.pay = Pay()
+thisdir = os.path.abspath(os.path.dirname(__file__))
+
+class App(object):
+    exposed = True
+    def GET(*args, **kwargs):
+        return cherrypy.lib.static.serve_file(os.path.join(thisdir, "index.html"))
+
+class Rest(object):
+    pass
+
+rest = Rest()
+rest.expenses = Expenses()
+rest.graph = Graph()
+rest.frozen = Frozen()
+rest.freeze = Freeze()
+rest.pay = Pay()
+rest.ledgers = Ledgers()
+
+class Redir(object):
+    exposed = True
+    def GET(*args, **kwargs):
+        raise cherrypy.HTTPRedirect("/app")
+
+root = Redir()
+root.rest = rest
+root.app = App()
 
 conf = {
- 'global': {
- 'server.socket_host': '0.0.0.0', 
- 'server.socket_port': 8000 
- } ,
- '/': {
- 'request.dispatch': cherrypy.dispatch.MethodDispatcher() 
- } 
+    'global': {
+       'server.socket_host': '0.0.0.0',
+       'server.socket_port': 8000
+    },
+    '/': {
+        'request.dispatch': cherrypy.dispatch.MethodDispatcher()
+    },
+    '/static': {
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': thisdir
+#       'tools.staticdir.index': 'index.html',
+    }
 }
 cherrypy.quickstart(root, '/', conf)
-#        '/static': {
-#                'tools.staticdir.on': True,
-#                'tools.staticdir.dir': os.path.abspath(os.path.dirname(__file__)),
-#                'tools.staticdir.index': 'index.html',
-#            },
-

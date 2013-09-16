@@ -1,14 +1,14 @@
 <!doctype html>
 <html ng-app="myApp">
 <head>
-<link rel="stylesheet" type="text/css" href="/temp/ownproj/intro.js-0.5.0/introjs.css">
-<script src="/temp/ownproj/intro.js-0.5.0/intro.js"></script>
-<script src="/temp/ownproj/angular.js"></script>
-<script src="/temp/ownproj/angular-resource.js"></script>
-<script src="/temp/ownproj/angular-sanitize.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/intro.js-0.5.0/introjs.css">
+<script src="/static/intro.js-0.5.0/intro.js"></script>
+<script src="/static/angular.js"></script>
+<script src="/static/angular-resource.js"></script>
+<script src="/static/angular-sanitize.js"></script>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title>ledger</title>
-<base href="/temp/ownproj/">
+<base href="/app/">
 <script>
 function errHandler(data, status, $location){
     //alert(status + ": " + data);
@@ -27,7 +27,7 @@ module.config([
        .when('/root/newexpenses/:ledgerid/:version', {template : '<ng-include src="\'expensesView\'"></ng-view>', controller: ExpensesController})
        .when('/root/ledgers/:ledgerid/:version', {template : '<ng-include src="\'viewLedgerView\'"></ng-view>', controller: ViewLedgerController})
        .when('/root/frozen/:ledgerid/:version/:access_token/:admin_token', {view_payments: true, template : '<ng-include src="\'viewLedgerView\'"></ng-view>', controller: ViewLedgerController})
-       .when('/404', {template: '<h1>404: {{problem}}<br><a target="_self" href="/temp/ownproj{{fix.url}}">{{fix.desc}}</a></h1>', controller: function($scope,$location) {$scope.problem = $location.search().requested + " not found"; $scope.fix={"url":$location.search().requested,"desc": "try again"}}})
+       .when('/404', {template: '<h1>404: {{problem}}</h1><p><a target="_self" href="/app{{url}}">Retry this URL</a><p><a href="/">Start over</a>', controller: function($scope,$location) {$scope.problem = $location.search().requested + " not found"; $scope.url = $location.search().requested}})
        .otherwise({redirectTo: function(routeParam, path, search){ return '/404?requested=' + path; }});
 
      $locationProvider.html5Mode(true);
@@ -37,7 +37,7 @@ module.config([
 function checkNotFoundHandler($location) {
     return function(data, status) {
         var url = $location.path();
-        if (status === 404) window.location.replace("/temp/ownproj/404?requested=" + encodeURIComponent(url)); //$location.path("/404").search({"requested": url}); // doesn't work
+        if (status === 404) window.location.replace("/app/404?requested=" + encodeURIComponent(url)); //$location.path("/404").search({"requested": url}); // doesn't work
         else errHandler.apply(this, arguments);
     };
 }
@@ -47,7 +47,7 @@ function ViewLedgerController($scope , $routeParams, $http, $route, $location) {
 
     $scope.freeze = function() {
         $http.post(prefix + 'freeze' + "/" + $routeParams.ledgerid + "/" + $routeParams.version).success(function(data, status, headers, config) {
-        console.log(data);
+        //console.log(data);
         $location.path("/root/frozen/" + $routeParams.ledgerid + "/" + $routeParams.version + "/" + data.access_token + "/" + data.admin_token);
     }).error(errHandler.bind(this));
 
@@ -68,7 +68,7 @@ function ViewLedgerController($scope , $routeParams, $http, $route, $location) {
                     return {amount: w[1], to: w[0]};
                 })];
             });
-            console.log($scope.graph);
+            //console.log($scope.graph);
         } else {
             var d = pairs(data.user_tokens);
             d.forEach(function(v) { v.reverse(); });
@@ -229,7 +229,7 @@ $scope.tutorial = function () {
 
   if ($scope.new) $scope.addExpense();
 }
-var prefix = "/temp/ownproj/rest/";
+var prefix = "/rest/";
 Array.range= function(a, b, step){
     var A= [];
         A[0]= a;
@@ -239,6 +239,31 @@ Array.range= function(a, b, step){
         }
     return A;
 }
+
+function clone(obj) {
+    // Handle the 3 simple types, and null or undefined
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle Array
+    if (obj instanceof Array) {
+        var copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle Object
+    if (obj instanceof Object) {
+        var copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+} 
 
 function ExpenseController($scope) {
     $scope.peopleLegend = $scope.$parent.peopleLegend;
@@ -253,7 +278,7 @@ function ExpenseController($scope) {
 
     $scope.init = function(expense) {
         $scope.hidden = false;
-        $scope.people = function() { return angular.copy($scope.$parent.people); };
+        $scope.people = function() { return clone($scope.$parent.people); };
         $scope.ispayer = expense.ispayer;
         $scope.amounts = expense.amounts;
         $scope.descs = expense.descs;
@@ -325,17 +350,16 @@ function ExpenseController($scope) {
 <div ng-view></div>
 <script type="text/ng-template"  id="viewLedgerView">
 <p><a href="root/newexpenses/newledger">Create all new ledger</a></p>
-<h1>Viewing ledger: {{description}}</h1>
+<h1>Viewing {{{false:"",true:"frozen"}[view_payments]}} ledger: {{description}}</h1>
 <div ng-repeat="v in graph">
 <h2>{{people[v[0]]}}</h2>
 <div ng-hide="hideMeM(v[1])">doesn't have to give out anything</div>
 <div ng-repeat="i in v[1]" ng-show="i.amount">
-<span style="color:green" ng-show="i.paid">
-paid
-</span>
+<span style="color:green" ng-show="i.paid">paid</span>
+<span style="color:red" ng-hide="i.paid">unpaid</span>
 give {{people[i.to]}} {{i.amount}}.
 <span ng-show="view_payments">
-<a href="http://localhost:8000/pay/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[i.to]}}/[{{$parent.$index}},{{$index}}]">pay</a>
+<a href="/rest/pay/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[i.to]}}/[{{$parent.$index}},{{$index}}]">pay</a>
 </span>
 </div>
 </div>
