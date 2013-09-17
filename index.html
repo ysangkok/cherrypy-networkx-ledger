@@ -197,7 +197,7 @@ $scope.tutorial = function () {
         //v.ispayer, v.amounts
         var expense = {};
         expense["whoshouldpay"] = Array.range(0,$scope.people.length).filter(function(value, index) { return v.ispayer[index]; });
-        expense["whopaid"] = Array.range(0,$scope.people.length).map(function(w, index) {return {"personId": index, "amount": Number(v.amounts[index] || 0)};}).filter(function(v) { return v["amount"] !== 0; });
+        expense["whopaid"] = Array.range(0,$scope.people.length).map(function(w, index) {return {"personId": index, "amount": v.amounts[index] || "0"};}).filter(function(v) { return v["amount"] !== 0; });
         expense["description"] = v.descs ? v.descs : "Unnamed Expense";
         return expense;
     });

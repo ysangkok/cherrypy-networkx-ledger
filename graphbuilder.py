@@ -7,14 +7,14 @@ from fractions import Fraction
 def getpersonscontributedamount(whopaid, personId):
     return sum([v["amount"] for v in whopaid if v["personId"] == personId])
 
-def solve_mincost_problem_for_expenses(job):
+def solve_mincost_problem_for_expenses(expenses, numPeople):
     nodes = [] # b cx cy
-    for person in job["people"]:
+    for person in range(numPeople):
         nodes.append({"b": 0})
     
     G = nx.DiGraph()
     edges = [] # from to C L U
-    for expense in job["expenses"]:
+    for expense in expenses:
     
         whopaid = expense["whopaid"]
         whoshouldpay = expense["whoshouldpay"]
@@ -32,8 +32,8 @@ def solve_mincost_problem_for_expenses(job):
         #G.add_node(job["people"][i], demand=v["b"])
         G.add_node(i, demand=v["b"])
     
-    for i in range(len(job["people"])):
-        for j in range(len(job["people"])):
+    for i in range(numPeople):
+        for j in range(numPeople):
             if (i != j):
                 #G.add_weighted_edges_from([(job["people"][i], job["people"][j], 1)])
                 G.add_weighted_edges_from([(i, j, 1)])
@@ -51,4 +51,4 @@ if __name__ == "__main__":
         {"personId": 1, "amount": 30}
         ], "whoshouldpay": [0,1,2]}]
     job = {"expenses":expenses, "people": people}
-    print(solve_mincost_problem_for_expenses(job))
+    print(solve_mincost_problem_for_expenses(job["expenses"], len(people)))

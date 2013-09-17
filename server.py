@@ -2,12 +2,10 @@
 from graphbuilder import solve_mincost_problem_for_expenses
 import os
 import cherrypy
-import uuid
 import json
-import itertools
-import sys
 import copy
 from collections import OrderedDict
+from fractions import Fraction
 
 def struuid():
     return hex(int.from_bytes(os.urandom(4), byteorder="big"))[2:]
@@ -32,7 +30,7 @@ class Pay(object):
     def POST(self, jobid, version, access_token, user_token, indices):
         try:
             indices = json.loads(indices)
-            assert isinstance(indices, list)
+            indices = [int(x) for x in indices]
         except:
             raise cherrypy.HTTPError(400, "couldn't decode given json, or it wasn't a list")
         try:
@@ -81,7 +79,7 @@ class Freeze(object):
             raise cherrypy.NotFound()
 
         user_tokens = dict((struuid(), x[0]) for x in enumerate(c["people"]))
-        graph = [(x[0], x[1].items()) for x in solve_mincost_problem_for_expenses(c).items()]
+        graph = [(x[0], x[1].items()) for x in solve_mincost_from_db(c).items()]
         def gennew():
             for (debtor, receivers) in graph:
                 yield (debtor, [{"to": x[0], "amount": x[1], "paid": False} for x in receivers])
@@ -104,25 +102,21 @@ class Freeze(object):
 class Expenses(object):
     exposed = True
     def POST(self, jobid=None, version=None):
+        content = json.loads(cherrypy.request.body.read().decode("utf-8")) # liste af expenses
         try:
-            content = json.loads(cherrypy.request.body.read().decode("utf-8")) # liste af expenses
-            assert isinstance(content, dict)
+            assert len(content["expenses"]) > 0 and len(content["expenses"][0]["whopaid"]) > 0
         except:
-            #return "could not decode"
-            raise cherrypy.HTTPError(400, "couldn't decode given json, or it wasn't an object")
-        if "description" not in content or "expenses" not in content or "people" not in content or len(content.keys()) > 3: return "illegal json data structure"
-        if not isinstance(content["expenses"], list) or len(content["expenses"]) == 0 or len(content["expenses"][0]["whopaid"]) == 0: raise cherrypy.HTTPError(400, "expenses is not a list or has no elements")
+            raise cherrypy.HTTPError(400, "missing expenses, expenses is not a list, or has no elements, or no payers list, or empty payers list")
         for i in content["expenses"]:
             if len(i["whoshouldpay"]) == 0:
                 raise cherrypy.HTTPError(400, "one of the expenses has no designated payers!")
             if len(i["whopaid"]) == 0:
                 raise cherrypy.HTTPError(400, "one of the expenses has no payers!")
-        if not isinstance(content["people"], list) or len(content["people"]) <= 1:
+        if len(content["people"]) <= 1:
             raise cherrypy.HTTPError(400, "system trivial or invalid! because: not a list, no people or only one person in 'people' property!")
         if jobid is None:
             jobid = struuid()
             while jobid in db: jobid = struuid()
-            #db[jobid] = [content] # expenses, people
             db[jobid] = []
         if jobid not in db:
             raise cherrypy.NotFound()
@@ -131,23 +125,32 @@ class Expenses(object):
             version = int(version)
             if len(db[jobid])-1 > version:
                 raise cherrypy.HTTPError(400, "antique")
+        content = {"people": [str(x) for x in content["people"]], "expenses": cleanexpenses(content["expenses"], str), "description": str(content["description"])}
         db[jobid].append(content)
         return json.dumps({"jobid": jobid, "version": len(db[jobid])-1})
     def GET(self, jobid, version=-1):
         try:
             version = int(version)
             c = copy.deepcopy(db[jobid][version])
-            del c["frozen"]
+            if "frozen" in c: del c["frozen"]
             return json.dumps(c)
         except:
             raise cherrypy.NotFound()
             #return "not found: " + str(jobid) + " " + str(version)
+
+def cleanexpenses(expenses, amountconv):
+    def cleanpayer(x):
+        return {"personId": int(x["personId"]), "amount": amountconv(x["amount"])}
+    def cleanexpense(x):
+        return {"description": str(x["description"]), "whopaid": [cleanpayer(x) for x in x["whopaid"]], "whoshouldpay": [int(x) for x in x["whoshouldpay"]]}
+    return [cleanexpense(x) for x in expenses]
 
 class Ledgers(object):
     exposed = True
     def GET(self):
         return json.dumps(list(db.keys()))
 
+solve_mincost_from_db = lambda c: solve_mincost_problem_for_expenses(cleanexpenses(c["expenses"], Fraction), len(c["people"]))
 
 @cherrypy.popargs("jobid", "version")
 class Graph(object):
@@ -158,7 +161,7 @@ class Graph(object):
             c = db[jobid][version]
         except (IndexError, KeyError):
             raise cherrypy.NotFound()
-        return json.dumps({"description": c["description"], "graph": solve_mincost_problem_for_expenses(c), "people": c["people"]})
+        return json.dumps({"description": c["description"], "graph": solve_mincost_from_db(c), "people": c["people"]})
 
 thisdir = os.path.abspath(os.path.dirname(__file__))
 
