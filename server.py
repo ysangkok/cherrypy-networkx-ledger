@@ -52,13 +52,22 @@ class Pay(object):
 @cherrypy.popargs("jobid", "version", "access_token", "admin_token")
 class Frozen(object):
     exposed = True
-    def GET(self, jobid, version, access_token, admin_token):
+    def GET(self, jobid, version, access_token, admin_token=None):
         try:
             c = db[jobid][int(version)]
             d = c["frozen"][access_token]
-            assert d["admin_token"] == admin_token
-            
-            return json.dumps(dict(list(d.items()) + [("people", c["people"]), ("description", c["description"])]))
+            if admin_token == d["admin_token"]:
+                admin = True
+                frozen_data = list(d.items())
+            elif admin_token in d["user_tokens"].keys():
+                admin = False
+                frozen_data = [(x,y) for (x,y) in d.items() if x in ["graph"]]
+                frozen_data.append(("user_tokens", dict([(x,y) for (x,y) in d["user_tokens"].items() if x == admin_token])))
+            else:
+                admin = False
+                frozen_data = [(x,y) for (x,y) in d.items() if x in ["graph"]] # a white-list for security, but essentially just exclude user_tokens, admin_token
+
+            return json.dumps(dict(frozen_data + [("people", c["people"]), ("description", c["description"]), ("admin", admin)]))
         except (KeyError, IndexError, AssertionError):
             raise cherrypy.NotFound()
 

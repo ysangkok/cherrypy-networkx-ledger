@@ -27,6 +27,7 @@ module.config([
        .when('/root/newexpenses/:ledgerid/:version', {template : '<ng-include src="\'expensesView\'"></ng-view>', controller: ExpensesController})
        .when('/root/ledgers/:ledgerid/:version', {template : '<ng-include src="\'viewLedgerView\'"></ng-view>', controller: ViewLedgerController})
        .when('/root/frozen/:ledgerid/:version/:access_token/:admin_token', {view_payments: true, template : '<ng-include src="\'viewLedgerView\'"></ng-view>', controller: ViewLedgerController})
+       .when('/root/frozen/:ledgerid/:version/:access_token', {view_payments: true, template : '<ng-include src="\'viewLedgerView\'"></ng-view>', controller: ViewLedgerController})
        .when('/404', {template: '<h1>404: {{problem}}</h1><p><a target="_self" href="/app{{url}}">Retry this URL</a><p><a href="/">Start over</a>', controller: function($scope,$location) {$scope.problem = $location.search().requested + " not found"; $scope.url = $location.search().requested}})
        .otherwise({redirectTo: function(routeParam, path, search){ return '/404?requested=' + path; }});
 
@@ -59,7 +60,7 @@ function ViewLedgerController($scope , $routeParams, $http, $route, $location) {
     if ($scope.view_payments) url += "frozen/";
     else url += "graph/";
     url += $routeParams.ledgerid + "/" + $routeParams.version;
-    if ($scope.view_payments) url += "/" + $routeParams.access_token + "/" + $routeParams.admin_token;
+    if ($scope.view_payments) url += "/" + $routeParams.access_token + ($routeParams.admin_token ? "/" + $routeParams.admin_token : "");
     $http.get(url).success(function(data, status) {
         $scope.graph = data.graph;
         if (!$scope.view_payments) {
@@ -75,6 +76,11 @@ function ViewLedgerController($scope , $routeParams, $http, $route, $location) {
             d = objectForPairs(d);
             $scope.user_tokens = d;
             $scope.access_token = $routeParams.access_token;
+            $scope.admin_token = $routeParams.admin_token;
+            $scope.admin_mode = data.admin;
+            $scope.reverse_user_tokens = //objectForPairs(pairs(
+                data.user_tokens
+            //).map(function(v) {return [v[0], String(v[1])]})); // convert int values to strings
         }
         $scope.people = data.people;
         $scope.description = data.description;
@@ -351,15 +357,25 @@ function ExpenseController($scope) {
 <script type="text/ng-template"  id="viewLedgerView">
 <p><a href="root/newexpenses/newledger">Create all new ledger</a></p>
 <h1>Viewing {{{false:"",true:"frozen"}[view_payments]}} ledger: {{description}}</h1>
+<div ng-show="view_payments">
+<div ng-show="admin_mode" style="color:#0bf;font-weight:bold;font-variant:small-caps;font-size:x-large">admin mode</div>
+<div><a href="root/frozen/{{ledgerid}}/{{version}}/{{access_token}}">public link</a></div>
+<div ng-show="admin_mode"><a href="root/frozen/{{ledgerid}}/{{version}}/{{access_token}}/{{admin_token}}">admin link</a></div>
+<div ng-show="!admin_mode && (reverse_user_tokens[admin_token] || reverse_user_tokens[admin_token] == '0')">
+viewing as {{people[reverse_user_tokens[admin_token]]}}
+</div>
+</div>
 <div ng-repeat="v in graph">
-<h2>{{people[v[0]]}}</h2>
+<h2>{{people[v[0]]}} <small ng-show="user_tokens[v[0]]"><a href="root/frozen/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[v[0]]}}">view as</a></small></h2>
 <div ng-hide="hideMeM(v[1])">doesn't have to give out anything</div>
 <div ng-repeat="i in v[1]" ng-show="i.amount">
 <span style="color:green" ng-show="i.paid">paid</span>
 <span style="color:red" ng-hide="i.paid">unpaid</span>
 give {{people[i.to]}} {{i.amount}}.
 <span ng-show="view_payments">
-<a href="/rest/pay/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[i.to]}}/[{{$parent.$index}},{{$index}}]">pay</a>
+<span ng-show="user_tokens[i.to]">
+<a href="/rest/pay/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[i.to]}}/[{{$parent.$index}},{{$index}}]">mark as paid</a>
+</span>
 </span>
 </div>
 </div>
