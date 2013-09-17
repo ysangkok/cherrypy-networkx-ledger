@@ -5,22 +5,21 @@ import cherrypy
 import json
 import copy
 from collections import OrderedDict
-from fractions import Fraction
+from fractions   import Fraction
+from decimal     import Decimal, localcontext
 
 def struuid():
     return hex(int.from_bytes(os.urandom(4), byteorder="big"))[2:]
 
-with open("db","r") as f:
+with open("db.json","r") as f:
     global db
     db = json.loads(f.read())
 
 def exit():
     print("STOP")
-    with open("db","w") as f:
+    with open("db.json","w") as f:
         f.write(json.dumps(db))
     os._exit(0)
-
-cherrypy.engine.signal_handler.set_handler("SIGINT", exit)
 
 @cherrypy.popargs("jobid", "version", "access_token", "user_token", "indices")
 class Pay(object):
@@ -150,7 +149,24 @@ class Ledgers(object):
     def GET(self):
         return json.dumps(list(db.keys()))
 
-solve_mincost_from_db = lambda c: solve_mincost_problem_for_expenses(cleanexpenses(c["expenses"], Fraction), len(c["people"]))
+def format_fraction(f, precision):
+    if f == 0: return "0"
+    s = str(int(f)) + "."
+    f -= int(f)
+    with localcontext() as ctx:
+        ctx.prec = precision
+        s += str(Decimal(f.numerator) / f.denominator).partition(".")[2]
+    return s
+
+solve_mincost_from_db = lambda ledger_from_db:\
+    dict(
+        (x,dict((i,format_fraction(Fraction(j),2)) for i,j in y.items()))
+        for x,y
+        in solve_mincost_problem_for_expenses(
+            cleanexpenses(ledger_from_db["expenses"], Fraction),
+            len(ledger_from_db["people"])
+        ).items()
+    )
 
 @cherrypy.popargs("jobid", "version")
 class Graph(object):
@@ -173,35 +189,38 @@ class App(object):
 class Rest(object):
     pass
 
-rest = Rest()
-rest.expenses = Expenses()
-rest.graph = Graph()
-rest.frozen = Frozen()
-rest.freeze = Freeze()
-rest.pay = Pay()
-rest.ledgers = Ledgers()
-
 class Redir(object):
     exposed = True
     def GET(*args, **kwargs):
         raise cherrypy.HTTPRedirect("/app")
 
-root = Redir()
-root.rest = rest
-root.app = App()
-
-conf = {
-    'global': {
-       'server.socket_host': '0.0.0.0',
-       'server.socket_port': 8000
-    },
-    '/': {
-        'request.dispatch': cherrypy.dispatch.MethodDispatcher()
-    },
-    '/static': {
-        'tools.staticdir.on': True,
-        'tools.staticdir.dir': thisdir
-#       'tools.staticdir.index': 'index.html',
+if __name__ == "__main__":
+    cherrypy.engine.signal_handler.set_handler("SIGINT", exit)
+    
+    rest = Rest()
+    rest.expenses = Expenses()
+    rest.graph = Graph()
+    rest.frozen = Frozen()
+    rest.freeze = Freeze()
+    rest.pay = Pay()
+    rest.ledgers = Ledgers()
+    
+    root = Redir()
+    root.rest = rest
+    root.app = App()
+    
+    conf = {
+        'global': {
+           'server.socket_host': '0.0.0.0',
+           'server.socket_port': 8000
+        },
+        '/': {
+            'request.dispatch': cherrypy.dispatch.MethodDispatcher()
+        },
+        '/static': {
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': thisdir
+    #       'tools.staticdir.index': 'index.html',
+        }
     }
-}
-cherrypy.quickstart(root, '/', conf)
+    cherrypy.quickstart(root, '/', conf)

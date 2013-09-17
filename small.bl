@@ -1,0 +1,1 @@
+{'userdict': {36: u'james', 37: u'thomas'}, 'userlist': [36, 37], 'expenselist': [{'users': [36, 37], 'payments': [{'amount': Decimal('199.90'), 'user': 36}, {'amount': Decimal('0.10'), 'user': 37}]}]}

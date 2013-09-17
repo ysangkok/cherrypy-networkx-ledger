@@ -86,7 +86,7 @@ function ViewLedgerController($scope , $routeParams, $http, $route, $location) {
         $scope.description = data.description;
     }).error(checkNotFoundHandler($location).bind(this));
     $scope.pairs = pairs;
-    $scope.hideMeM = function(v) {return v.filter(function(w) { return w.amount !== 0; }).length > 0; };
+    $scope.hideMeM = function(v) {return v.filter(function(w) { return w.amount !== "0"; }).length > 0; };
 }
 
 function pairs(foo) {
@@ -369,8 +369,10 @@ viewing as {{people[reverse_user_tokens[admin_token]]}}
 <h2>{{people[v[0]]}} <small ng-show="user_tokens[v[0]]"><a href="root/frozen/{{ledgerid}}/{{version}}/{{access_token}}/{{user_tokens[v[0]]}}">view as</a></small></h2>
 <div ng-hide="hideMeM(v[1])">doesn't have to give out anything</div>
 <div ng-repeat="i in v[1]" ng-show="i.amount">
+<span ng-show="view_payments">
 <span style="color:green" ng-show="i.paid">paid</span>
 <span style="color:red" ng-hide="i.paid">unpaid</span>
+</span>
 give {{people[i.to]}} {{i.amount}}.
 <span ng-show="view_payments">
 <span ng-show="user_tokens[i.to]">

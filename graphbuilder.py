@@ -40,9 +40,6 @@ def solve_mincost_problem_for_expenses(expenses, numPeople):
 
     #print(G)
     flowCost, flowDict = nx.network_simplex(G)
-    def conv_value_to_float(y):
-        return (y[0], float(y[1]))
-    flowDict = dict(map(lambda x: (x[0], dict(map(conv_value_to_float, x[1].items()))), flowDict.items())) # replace fractions with floats
     return flowDict
 
 if __name__ == "__main__":
